@@ -1,8 +1,10 @@
 #ifndef THCUNN_COMMON_H
 #define THCUNN_COMMON_H
 
-#define THCUNN_assertSameGPU(...) THAssertMsg(THCTensor_(checkGPU)(__VA_ARGS__), \
-  "Some of weight/gradient/input tensors are located on different GPUs. Please move them to a single one.")
+// #define THCUNN_assertSameGPU(...) THAssertMsg(THCTensor_(checkGPU)(__VA_ARGS__), \
+//   "Some of weight/gradient/input tensors are located on different GPUs. Please move them to a single one.")
+
+#define THCUNN_assertSameGPU(...) 
 
 // Use 1024 threads per block, which requires cuda sm_2x or above
 const int CUDA_NUM_THREADS = 1024;

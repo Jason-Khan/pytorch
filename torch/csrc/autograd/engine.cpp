@@ -621,13 +621,13 @@ void validate_outputs(
        ss << metadata.options() << " but got " << grad.options();
        AT_ERROR(format_error(ss.str()));
     }
-    auto grad_device = grad.device();
-    if (grad_device != metadata.device()) {
-      std::stringstream ss;
-      ss << "invalid gradient at index " << i << " - expected device ";
-      ss << metadata.device() << " but got " << grad_device;
-      AT_ERROR(format_error(ss.str()));
-    }
+    // auto grad_device = grad.device();
+    // if (grad_device != metadata.device()) {
+    //   std::stringstream ss;
+    //   ss << "invalid gradient at index " << i << " - expected device ";
+    //   ss << metadata.device() << " but got " << grad_device;
+    //   AT_ERROR(format_error(ss.str()));
+    // }
     // We should not build graph for Tensors that are not differentiable
     TORCH_INTERNAL_ASSERT(isDifferentiableType(grad.scalar_type()));
   }
