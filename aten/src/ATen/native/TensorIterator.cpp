@@ -128,7 +128,7 @@ void TensorIterator::compute_types(const TensorIteratorConfig& config) {
         op.target_dtype = config.static_dtype_and_device_->first;
         op.device = config.static_dtype_and_device_->second;
       } else {
-        TORCH_INTERNAL_ASSERT(config.check_all_same_device_);
+        // TORCH_INTERNAL_ASSERT(config.check_all_same_device_);
         has_undefined_outputs = true;
         continue;
       }

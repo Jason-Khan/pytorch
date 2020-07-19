@@ -129,7 +129,7 @@ void checkSameGPU(CheckedFrom c, const TensorArg& t1, const TensorArg& t2) {
 }
 
 void checkAllSameGPU(CheckedFrom c, ArrayRef<TensorArg> tensors) {
-  checkAllSame(c, tensors, checkSameGPU);
+  // checkAllSame(c, tensors, checkSameGPU);
 }
 
 void checkSameType(CheckedFrom c, const TensorArg& t1, const TensorArg& t2) {

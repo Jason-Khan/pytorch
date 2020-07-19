@@ -548,7 +548,7 @@ private:
   bool is_reduction_ = false;
   bool resize_outputs_ = true;
   bool check_all_same_dtype_ = true;
-  bool check_all_same_device_ = true;
+  bool check_all_same_device_ = false;
   bool enforce_safe_casting_to_output_ = false;
   bool promote_inputs_to_common_dtype_ = false;
   bool cast_common_dtype_to_outputs_ = false;
