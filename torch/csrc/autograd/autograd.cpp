@@ -5,6 +5,9 @@
 #include <torch/csrc/autograd/engine.h>
 #include <torch/csrc/autograd/function.h>
 
+#include <ATen/cuda/CUDAContext.h>
+#include <iostream>
+
 namespace torch {
 namespace autograd {
 
@@ -62,6 +65,15 @@ variable_list _make_grads(
   }
   return new_grads;
 }
+
+void cudaSync() {
+  TORCH_WARN("SYNCING!");
+  cudaSetDevice(0);
+  cudaDeviceSynchronize();
+  cudaSetDevice(1);
+  cudaDeviceSynchronize();
+}
+
 variable_list run_backward(
     const variable_list& outputs,
     const variable_list& grad_outputs,
@@ -69,6 +81,9 @@ variable_list run_backward(
     bool create_graph,
     const variable_list& inputs,
     bool allow_unused) {
+
+  cudaSync();
+  TORCH_CHECK(false, "We are running run_backward");
   size_t num_tensors = outputs.size();
   edge_list roots;
   roots.reserve(num_tensors);
@@ -78,17 +93,20 @@ variable_list run_backward(
     if(output.is_complex()) {
       TORCH_WARN_ONCE("Complex backward is not fully supported yet and could lead to wrong ",
                       "gradients for functions we have not fixed yet");
+      cudaSync();
     }
+  cudaSync();
     TORCH_CHECK(
         gradient_edge.function,
         "element ", i, " of tensors does not require grad and does not have a grad_fn");
     roots.push_back(std::move(gradient_edge));
   }
-
+  cudaSync();
   edge_list output_edges;
   if (!inputs.empty()) {
     size_t num_inputs = inputs.size();
     output_edges.reserve(num_inputs);
+    cudaSync();
     for (size_t i = 0; i < num_inputs; ++i) {
       const Variable& input = inputs[i];
       const auto output_nr = input.output_nr();
@@ -104,12 +122,14 @@ variable_list run_backward(
       } else {
         output_edges.emplace_back(grad_fn, output_nr);
       }
+      cudaSync();
     }
   }
-
+  cudaSync();
   variable_list grad_inputs = Engine::get_default_engine().execute(
       roots, grad_outputs, keep_graph, create_graph, output_edges);
   // check if grad_inputs contains None or not base on the allow_unused flag
+  cudaSync();
   if (!inputs.empty() && !allow_unused) {
     size_t num_inputs = inputs.size();
     for (size_t i = 0; i < num_inputs; ++i) {
@@ -119,7 +139,8 @@ variable_list run_backward(
           "differentiated Tensors appears to not have been used "
           "in the graph. Set allow_unused=True if this is the "
           "desired behavior.");
-    }
+      cudaSync();
+    } cudaSync();
   }
   return grad_inputs;
 }
@@ -129,11 +150,14 @@ void backward(
     const variable_list& grad_tensors,
     c10::optional<bool> retain_graph,
     bool create_graph) {
+  TORCH_WARN("Backward funtion is Called");
   variable_list gradients = _make_grads(tensors, grad_tensors);
+  cudaSync();
   if (!retain_graph) {
     retain_graph = create_graph;
   }
   run_backward(tensors, gradients, retain_graph.value(), create_graph, {}, /*allow_unused=*/true);
+  cudaSync();
 }
 
 variable_list grad(

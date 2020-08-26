@@ -9,6 +9,7 @@
 #include <torch/csrc/autograd/python_anomaly_mode.h>
 #include <torch/csrc/autograd/python_function.h>
 #include <pybind11/pybind11.h>
+#include <ATen/cuda/CUDAContext.h>
 
 #ifndef _WIN32
 #include <pthread.h>
@@ -115,85 +116,136 @@ std::shared_ptr<FutureVariableList> PythonEngine::execute_with_graph_task(
 
 PyObject *THPEngineClass = nullptr;
 
+
+void cudaSync() {
+  TORCH_WARN("SYNCING!");
+  cudaSetDevice(0);
+  cudaDeviceSynchronize();
+  cudaSetDevice(1);
+  cudaDeviceSynchronize();
+  cudaSetDevice(2);
+  cudaDeviceSynchronize();
+  cudaSetDevice(3);
+  cudaDeviceSynchronize();
+}
+
 // Implementation of torch._C._EngineBase.run_backward
 PyObject *THPEngine_run_backward(THPEngine *self, PyObject *args, PyObject *kwargs)
 {
   HANDLE_TH_ERRORS
+cudaSync();
   PyObject *tensors = nullptr;
+cudaSync();
   PyObject *grad_tensors = nullptr;
+cudaSync();
   unsigned char keep_graph = 0;
+cudaSync();
   unsigned char create_graph = 0;
+cudaSync();
   PyObject *inputs = nullptr;
+cudaSync();
   unsigned char allow_unreachable = 0;
+cudaSync();
   const char *accepted_kwargs[] = {
       "tensors", "grad_tensors", "keep_graph", "create_graph", "inputs",
       "allow_unreachable", nullptr
   };
+cudaSync();
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OObb|Ob", (char**)accepted_kwargs,
         &tensors, &grad_tensors, &keep_graph, &create_graph, &inputs, &allow_unreachable))
     return nullptr;
 
   THPUtils_assert(PyTuple_Check(tensors), "tensors argument is expected to "
       "be a tuple, but got %s", THPUtils_typename(tensors));
+cudaSync();
   THPUtils_assert(PyTuple_Check(grad_tensors), "grad_tensors argument is "
       "expected to be a tuple, but got %s", THPUtils_typename(grad_tensors));
-
+  cudaSync();
   Py_ssize_t num_tensors = PyTuple_GET_SIZE(tensors);
+cudaSync();
   Py_ssize_t num_gradients = PyTuple_GET_SIZE(grad_tensors);
+cudaSync();
   THPUtils_assert(num_tensors == num_gradients, "got %ld tensors and %ld "
       "gradients", num_tensors, num_gradients);
-
+  cudaSync();
   edge_list roots;
+cudaSync();
   roots.reserve(num_tensors);
+cudaSync();
   variable_list grads;
+cudaSync();
   grads.reserve(num_tensors);
+cudaSync();
   for (int i = 0; i < num_tensors; i++) {
     PyObject *_tensor = PyTuple_GET_ITEM(tensors, i);
+cudaSync();
     THPUtils_assert(THPVariable_Check(_tensor), "element %d of tensors "
         "tuple is not a Tensor", i);
+cudaSync();
     auto& variable = ((THPVariable*)_tensor)->cdata;
+cudaSync();
     if(variable.is_complex()) {
       TORCH_WARN_ONCE("Complex backward is not fully supported yet and could lead to wrong ",
                       "gradients for functions we have not fixed yet");
     }
+    cudaSync();
     auto gradient_edge = torch::autograd::impl::gradient_edge(variable);
+cudaSync();
     THPUtils_assert(gradient_edge.function,
         "element %d of tensors does not require grad and does not have a grad_fn", i);
+cudaSync();
     roots.push_back(std::move(gradient_edge));
+cudaSync();
 
     PyObject *grad = PyTuple_GET_ITEM(grad_tensors, i);
+cudaSync();
     if (THPVariable_Check(grad)) {
       const Variable& grad_var = ((THPVariable*)grad)->cdata;
+cudaSync();
       if (grad_var.has_names()) {
         TORCH_WARN(
             "Autograd was passed a named grad tensor with dims ", grad_var.names(),
             ". Autograd does not yet support named tensor semantics, so all names ",
             "will be ignored. In practice all computed gradients will still be correct "
             "according to regular tensor semantics.");
+cudaSync();
       }
       grads.push_back(grad_var);
+cudaSync();
     } else {
       THPUtils_assert(grad == Py_None,
           "element %d of gradients tuple is not a Tensor or None", i);
+cudaSync();
       THPUtils_assert(!variable.requires_grad(),
           "element %d of gradients tuple is None, but the corresponding Tensor requires grad");
+cudaSync();
     }
   }
+  cudaSync();
 
   std::vector<Edge> output_edges;
+cudaSync();
   if (inputs != nullptr) {
     int num_inputs = PyTuple_GET_SIZE(inputs);
+cudaSync();
     output_edges.reserve(num_inputs);
+cudaSync();
     for (int i = 0; i < num_inputs; ++i) {
       PyObject *input = PyTuple_GET_ITEM(inputs, i);
+cudaSync();
       THPUtils_assert(THPVariable_Check(input),
           "all inputs have to be Tensors, but got %s", THPUtils_typename(input));
+cudaSync();
       THPVariable *input_var = (THPVariable*)input;
+cudaSync();
       const auto output_nr = input_var->cdata.output_nr();
+cudaSync();
       auto grad_fn = input_var->cdata.grad_fn();
+cudaSync();
       if (!grad_fn) {
           grad_fn = torch::autograd::impl::try_get_grad_accumulator(input_var->cdata);
       }
+      cudaSync();
       THPUtils_assert(input_var->cdata.requires_grad(),
           "One of the differentiated Tensors does not require grad");
       if (!grad_fn) {
@@ -201,31 +253,44 @@ PyObject *THPEngine_run_backward(THPEngine *self, PyObject *args, PyObject *kwar
       } else {
         output_edges.emplace_back(grad_fn, output_nr);
       }
+      cudaSync();
     }
+    cudaSync();
   }
 
   variable_list outputs;
   {
     pybind11::gil_scoped_release no_gil;
+cudaSync();
     auto& engine = python::PythonEngine::get_python_engine();
+cudaSync();
     outputs = engine.execute(roots, grads, keep_graph, create_graph, output_edges);
+cudaSync();
   }
-
+  cudaSync();
   if (inputs != nullptr) {
     int num_inputs = PyTuple_GET_SIZE(inputs);
+cudaSync();
     THPObjectPtr py_outputs {PyTuple_New(num_inputs)};
+cudaSync();
     if (!py_outputs) return nullptr;
+cudaSync();
     for (int i = 0; i < num_inputs; i++) {
       THPUtils_assert(allow_unreachable || outputs[i].defined(), "One of the "
                       "differentiated Tensors appears to not have been used "
                       "in the graph. Set allow_unused=True if this is the "
                       "desired behavior.");
+cudaSync();
       PyTuple_SET_ITEM(py_outputs.get(), i, THPVariable_Wrap(outputs[i]));
+      cudaSync();
     }
+cudaSync();
     return py_outputs.release();
   } else {
+cudaSync();
     Py_RETURN_NONE;
   }
+cudaSync();
   END_HANDLE_TH_ERRORS
 }
 

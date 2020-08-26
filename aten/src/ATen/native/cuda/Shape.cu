@@ -333,11 +333,11 @@ Tensor& cat_out_cuda(Tensor& out, TensorList inputs, int64_t dimension) {
   TORCH_CHECK(inputs.size() > 0, "invalid number of inputs ", inputs.size());
   TORCH_CHECK(dimension >= 0, "invalid dimension ", dimension);
 
-  for (const Tensor& t: inputs) {
-    TORCH_CHECK(t.device() == notSkippedTensor->device(),
-                "All input tensors must be on the same device. Received ",
-                t.device(), " and ", notSkippedTensor->device());
-  }
+  // for (const Tensor& t: inputs) {
+  //   TORCH_CHECK(t.device() == notSkippedTensor->device(),
+  //               "All input tensors must be on the same device. Received ",
+  //               t.device(), " and ", notSkippedTensor->device());
+  // }
 
   c10::MemoryFormat memory_format = compute_output_memory_format(inputs);
 

@@ -100,6 +100,8 @@ def backward(
             be constructed, allowing to compute higher order derivative products.
             Defaults to ``False``.
     """
+    import cuda_p2p
+    cuda_p2p.cudaSync()
     if grad_variables is not None:
         warnings.warn("'grad_variables' is deprecated. Use 'grad_tensors' instead.")
         if grad_tensors is None:
@@ -108,20 +110,24 @@ def backward(
             raise RuntimeError("'grad_tensors' and 'grad_variables' (deprecated) "
                                "arguments both passed to backward(). Please only "
                                "use 'grad_tensors'.")
-
+    
+    cuda_p2p.cudaSync()
     tensors = (tensors,) if isinstance(tensors, torch.Tensor) else tuple(tensors)
-
+    
+    cuda_p2p.cudaSync()
     if grad_tensors is None:
         grad_tensors = [None] * len(tensors)
     elif isinstance(grad_tensors, torch.Tensor):
         grad_tensors = [grad_tensors]
     else:
         grad_tensors = list(grad_tensors)
-
+    
+    cuda_p2p.cudaSync()
     grad_tensors = _make_grads(tensors, grad_tensors)
     if retain_graph is None:
         retain_graph = create_graph
-
+    
+    cuda_p2p.cudaSync()
     Variable._execution_engine.run_backward(
         tensors, grad_tensors, retain_graph, create_graph,
         allow_unreachable=True)  # allow_unreachable flag
